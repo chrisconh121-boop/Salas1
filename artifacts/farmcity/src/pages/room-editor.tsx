@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -16,7 +17,11 @@ import {
 import { useAuth } from '@/contexts/auth-context';
 import { RoomEditorCanvas, type RoomTile } from '@/components/room-editor-canvas';
 import type { RoomWall } from '@/components/isometric-canvas';
-import { getGetMyRoomQueryKey, useGetMyRoom } from '@workspace/api-client-react';
+import {
+  getGetMyRoomQueryKey,
+  getGetPublicRoomsQueryKey,
+  useGetMyRoom,
+} from '@workspace/api-client-react';
 
 type ConnectionState = 'connecting' | 'connected' | 'disconnected';
 type FeedbackKind = 'info' | 'success' | 'error';
@@ -79,6 +84,7 @@ function countPerimeter(tiles: RoomTile[]): number {
 export default function RoomEditor() {
   const { token } = useAuth();
   const [location, setLocation] = useLocation();
+  const queryClient = useQueryClient();
   const isNewRoom = new URLSearchParams(location.split('?')[1] ?? '').get('new') === '1';
   const socketRef = useRef<WebSocket | null>(null);
   const passwordRef = useRef('');
@@ -199,11 +205,24 @@ export default function RoomEditor() {
         ) {
           // The join follows the create acknowledgement immediately, as required by the room protocol.
           setRoomId(message.data.roomId);
+          setIsSaving(false);
+          void queryClient.invalidateQueries({ queryKey: getGetMyRoomQueryKey() });
+          void queryClient.invalidateQueries({ queryKey: getGetPublicRoomsQueryKey() });
+
+          if (message.type === 'room:created' && isNewRoom) {
+            setFeedback({
+              kind: 'success',
+              title: 'Sala creada',
+              message: `Se guardó correctamente. ID: ${message.data.roomId}`,
+            });
+            setLocation('/rooms');
+            return;
+          }
+
           ws.send(JSON.stringify({
             type: 'room:join',
             data: { roomId: message.data.roomId, ...(passwordRef.current ? { password: passwordRef.current } : {}) },
           }));
-          setIsSaving(false);
           setFeedback({
             kind: 'success',
             title: message.type === 'room:updated' ? 'Sala actualizada' : 'Sala creada',
@@ -269,7 +288,7 @@ export default function RoomEditor() {
       ws.close();
       socketRef.current = null;
     };
-  }, [setLocation, token]);
+  }, [queryClient, setLocation, token]);
 
   function toggleTile(tile: RoomTile) {
     setTiles((current) => {
@@ -286,6 +305,9 @@ export default function RoomEditor() {
   }
 
   function handleSave() {
+    // The URL is the source of truth for intent. This prevents a stale
+    // roomId from turning a "Nueva sala" save into an update.
+    const targetRoomId = isNewRoom ? null : roomId;
     const name = roomName.trim();
     if (!name) {
       setFeedback({ kind: 'error', title: 'Falta un nombre', message: 'Ponle un nombre a tu casa antes de guardarla.' });
@@ -295,7 +317,7 @@ export default function RoomEditor() {
       setFeedback({ kind: 'error', title: 'El plano está vacío', message: 'Añade al menos un tile para crear una sala.' });
       return;
     }
-    if (!isPublic && !password.trim() && !(roomId && hasSavedPassword)) {
+    if (!isPublic && !password.trim() && !(targetRoomId && hasSavedPassword)) {
       setFeedback({ kind: 'error', title: 'Falta una contraseña', message: 'Las salas privadas necesitan una contraseña.' });
       return;
     }
@@ -305,7 +327,7 @@ export default function RoomEditor() {
     }
 
     const data = {
-      ...(roomId ? { roomId } : {}),
+      ...(targetRoomId ? { roomId: targetRoomId } : {}),
       name,
       tiles,
       walls,
@@ -317,10 +339,17 @@ export default function RoomEditor() {
     setIsSaving(true);
     setFeedback({
       kind: 'info',
-      title: roomId ? 'Actualizando tu casa' : 'Guardando tu casa',
+      title: targetRoomId ? 'Actualizando tu casa' : 'Creando una sala nueva',
       message: 'Enviando el plano a FarmCity…',
     });
-    socketRef.current.send(JSON.stringify({ type: roomId ? 'room:update' : 'room:create', data }));
+    socketRef.current.send(JSON.stringify({ type: targetRoomId ? 'room:update' : 'room:create', data }));
+  }
+
+  function startNewRoom() {
+    setRoomId(null);
+    setHasSavedPassword(false);
+    setPassword('');
+    setLocation('/room-editor?new=1');
   }
 
   return (
@@ -340,7 +369,7 @@ export default function RoomEditor() {
             <button
               type="button"
               className="room-editor-new-room"
-              onClick={() => setLocation('/room-editor?new=1')}
+              onClick={startNewRoom}
               data-testid="button-new-room"
             >
               <Plus size={15} /> Nueva sala
