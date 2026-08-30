@@ -1,2 +1,3 @@
 - [Project import handoff](project-import.md) — restore preserved source files after moving a conversation into a persistent project
 - [Generated API clients](generated-client-sync.md) — regenerate typed clients after restoring source and OpenAPI files from the repository
+- [Room creation semantics](room-creation-semantics.md) — keep new-room creation distinct from editing the latest saved room

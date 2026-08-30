@@ -8,6 +8,7 @@ import {
   Home,
   LockKeyhole,
   MousePointer2,
+  Plus,
   Save,
   ShieldCheck,
 } from 'lucide-react';
@@ -77,7 +78,8 @@ function countPerimeter(tiles: RoomTile[]): number {
 
 export default function RoomEditor() {
   const { token } = useAuth();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+  const isNewRoom = new URLSearchParams(location.split('?')[1] ?? '').get('new') === '1';
   const socketRef = useRef<WebSocket | null>(null);
   const passwordRef = useRef('');
   const [tiles, setTiles] = useState<RoomTile[]>(INITIAL_TILES);
@@ -111,7 +113,7 @@ export default function RoomEditor() {
   }, [password]);
 
   useEffect(() => {
-    if (!savedRoom) return;
+    if (isNewRoom || !savedRoom) return;
     setRoomId(savedRoom.id);
     setHasSavedPassword(savedRoom.hasPassword);
     setRoomName(savedRoom.name);
@@ -126,7 +128,25 @@ export default function RoomEditor() {
       title: 'Casa recuperada',
       message: 'Tus cambios anteriores están listos para seguir editándolos.',
     });
-  }, [savedRoom?.id]);
+  }, [isNewRoom, savedRoom?.id]);
+
+  useEffect(() => {
+    if (!isNewRoom) return;
+    setRoomId(null);
+    setHasSavedPassword(false);
+    setRoomName('Mi rincón');
+    setTiles(INITIAL_TILES);
+    setWalls(INITIAL_WALLS);
+    setFloorTextureId(FLOOR_TEXTURES[0].id);
+    setWallTextureId(WALL_TEXTURES[0].id);
+    setIsPublic(true);
+    setPassword('');
+    setFeedback({
+      kind: 'info',
+      title: 'Nueva sala',
+      message: 'Diseña una sala independiente. Al guardarla recibirá su propio ID.',
+    });
+  }, [isNewRoom]);
 
   useEffect(() => {
     if (!token) {
@@ -227,10 +247,13 @@ export default function RoomEditor() {
         if (message.type === 'room:error') {
           setIsSaving(false);
           const code = message.data?.code ? ` · ${message.data.code}` : '';
+          const messageText = message.data?.code === 'ROOM_LIMIT_REACHED'
+            ? 'Ya tienes 10 salas. Edita una existente o elimina una antes de crear otra.'
+            : (message.data?.message ?? 'El servidor rechazó la sala.');
           setFeedback({
             kind: 'error',
             title: 'No se pudo guardar',
-            message: `${message.data?.message ?? 'El servidor rechazó la sala.'}${code}`,
+            message: `${messageText}${code}`,
           });
         }
       } catch {
@@ -310,14 +333,24 @@ export default function RoomEditor() {
             </div>
             <div className="room-editor-brand-copy">
               <small>FarmCity / Plaza</small>
-              <strong>Mi Casa</strong>
+              <strong>{isNewRoom ? 'Nueva sala' : 'Mi Casa'}</strong>
             </div>
           </div>
-          <div
-            className={`room-editor-connection ${connection === 'connected' ? 'is-connected' : ''} ${connection === 'disconnected' ? 'is-error' : ''}`}
-            data-testid="status-room-connection"
-          >
-            {connection === 'connected' ? 'Conectado' : connection === 'connecting' ? 'Conectando…' : 'Sin conexión'}
+          <div className="room-editor-topbar-actions">
+            <button
+              type="button"
+              className="room-editor-new-room"
+              onClick={() => setLocation('/room-editor?new=1')}
+              data-testid="button-new-room"
+            >
+              <Plus size={15} /> Nueva sala
+            </button>
+            <div
+              className={`room-editor-connection ${connection === 'connected' ? 'is-connected' : ''} ${connection === 'disconnected' ? 'is-error' : ''}`}
+              data-testid="status-room-connection"
+            >
+              {connection === 'connected' ? 'Conectado' : connection === 'connecting' ? 'Conectando…' : 'Sin conexión'}
+            </div>
           </div>
         </header>
 

@@ -3,7 +3,7 @@ import { type IncomingMessage } from "http";
 import { verifyToken } from "./auth";
 import { db } from "@workspace/db";
 import { chatMessagesTable, playerPositionsTable, avatarsTable, playersTable, roomsTable } from "@workspace/db";
-import { desc, eq } from "drizzle-orm";
+import { count, desc, eq } from "drizzle-orm";
 import { logger } from "./logger";
 import {
   broadcastToRoom,
@@ -39,6 +39,7 @@ interface AvatarSnapshot {
 
 const clients = new Map<number, GameClient>();
 const roomManager = new RoomManager();
+const MAX_ROOMS_PER_PLAYER = 10;
 
 function safeSend(ws: WebSocket, data: unknown): void {
   if (ws.readyState === WebSocket.OPEN) {
@@ -297,6 +298,22 @@ export function createWebSocketServer(server: import("http").Server): WebSocketS
       if (msg.type === "room:create" || msg.type === "room:update") {
         const data = msg.data as RoomPayload | undefined;
         let existingRoom: Room | undefined;
+
+        if (msg.type === "room:create") {
+          const [{ total }] = await db
+            .select({ total: count() })
+            .from(roomsTable)
+            .where(eq(roomsTable.ownerId, playerId));
+
+          if (Number(total) >= MAX_ROOMS_PER_PLAYER) {
+            sendRoomError(
+              ws,
+              "ROOM_LIMIT_REACHED",
+              `Cada jugador puede tener como máximo ${MAX_ROOMS_PER_PLAYER} salas`,
+            );
+            return;
+          }
+        }
 
         if (msg.type === "room:update") {
           if (typeof data?.roomId !== "string") {

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ArrowLeft, ArrowRight, DoorOpen, LockKeyhole, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, DoorOpen, LockKeyhole, Plus, RefreshCw } from 'lucide-react';
 import { useLocation } from 'wouter';
 import {
   getGetPublicRoomsQueryKey,
@@ -76,6 +76,14 @@ export default function Rooms() {
               Toca una sala para entrar directamente. Cada casa tiene un ID único
               generado por FarmCity.
             </p>
+            <button
+              type="button"
+              className="room-list-create"
+              onClick={() => setLocation('/room-editor?new=1')}
+              data-testid="button-create-new-room"
+            >
+              <Plus size={16} /> Crear nueva sala
+            </button>
           </div>
 
           {roomsQuery.isLoading && (
