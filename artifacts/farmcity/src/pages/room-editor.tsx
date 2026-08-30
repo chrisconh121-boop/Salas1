@@ -15,6 +15,7 @@ import {
 import { useAuth } from '@/contexts/auth-context';
 import { RoomEditorCanvas, type RoomTile } from '@/components/room-editor-canvas';
 import type { RoomWall } from '@/components/isometric-canvas';
+import { getGetMyRoomQueryKey, useGetMyRoom } from '@workspace/api-client-react';
 
 type ConnectionState = 'connecting' | 'connected' | 'disconnected';
 type FeedbackKind = 'info' | 'success' | 'error';
@@ -80,7 +81,9 @@ export default function RoomEditor() {
   const socketRef = useRef<WebSocket | null>(null);
   const passwordRef = useRef('');
   const [tiles, setTiles] = useState<RoomTile[]>(INITIAL_TILES);
-  const [walls] = useState<RoomWall[]>(INITIAL_WALLS);
+  const [walls, setWalls] = useState<RoomWall[]>(INITIAL_WALLS);
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const [hasSavedPassword, setHasSavedPassword] = useState(false);
   const [roomName, setRoomName] = useState('Mi rincón');
   const [floorTextureId, setFloorTextureId] = useState(FLOOR_TEXTURES[0].id);
   const [wallTextureId, setWallTextureId] = useState(WALL_TEXTURES[0].id);
@@ -93,12 +96,37 @@ export default function RoomEditor() {
     message: 'Conectando con FarmCity…',
   });
   const [isSaving, setIsSaving] = useState(false);
+  const { data: savedRoom } = useGetMyRoom({
+    query: {
+      enabled: !!token,
+      queryKey: getGetMyRoomQueryKey(),
+      retry: false,
+    },
+  });
 
   const perimeter = useMemo(() => countPerimeter(tiles), [tiles]);
 
   useEffect(() => {
     passwordRef.current = password;
   }, [password]);
+
+  useEffect(() => {
+    if (!savedRoom) return;
+    setRoomId(savedRoom.id);
+    setHasSavedPassword(savedRoom.hasPassword);
+    setRoomName(savedRoom.name);
+    setTiles(savedRoom.tiles);
+    setWalls(savedRoom.walls);
+    setFloorTextureId(savedRoom.floorTextureId);
+    setWallTextureId(savedRoom.wallTextureId);
+    setIsPublic(savedRoom.isPublic);
+    setPassword('');
+    setFeedback({
+      kind: 'success',
+      title: 'Casa recuperada',
+      message: 'Tus cambios anteriores están listos para seguir editándolos.',
+    });
+  }, [savedRoom?.id]);
 
   useEffect(() => {
     if (!token) {
@@ -145,8 +173,12 @@ export default function RoomEditor() {
           data?: { roomId?: string; code?: string; message?: string };
         };
 
-        if (message.type === 'room:created' && message.data?.roomId) {
+        if (
+          (message.type === 'room:created' || message.type === 'room:updated') &&
+          message.data?.roomId
+        ) {
           // The join follows the create acknowledgement immediately, as required by the room protocol.
+          setRoomId(message.data.roomId);
           ws.send(JSON.stringify({
             type: 'room:join',
             data: { roomId: message.data.roomId, ...(passwordRef.current ? { password: passwordRef.current } : {}) },
@@ -154,7 +186,7 @@ export default function RoomEditor() {
           setIsSaving(false);
           setFeedback({
             kind: 'success',
-            title: 'Sala creada',
+            title: message.type === 'room:updated' ? 'Sala actualizada' : 'Sala creada',
             message: `Tu casa ya existe. Entrando en ella… (${message.data.roomId})`,
           });
           return;
@@ -178,6 +210,7 @@ export default function RoomEditor() {
               floorTextureId: snapshot.floorTextureId,
               wallTextureId: snapshot.wallTextureId,
             }));
+            if (snapshot.id) setRoomId(snapshot.id);
           }
           setFeedback({
             kind: 'success',
@@ -239,7 +272,7 @@ export default function RoomEditor() {
       setFeedback({ kind: 'error', title: 'El plano está vacío', message: 'Añade al menos un tile para crear una sala.' });
       return;
     }
-    if (!isPublic && !password.trim()) {
+    if (!isPublic && !password.trim() && !(roomId && hasSavedPassword)) {
       setFeedback({ kind: 'error', title: 'Falta una contraseña', message: 'Las salas privadas necesitan una contraseña.' });
       return;
     }
@@ -249,17 +282,22 @@ export default function RoomEditor() {
     }
 
     const data = {
+      ...(roomId ? { roomId } : {}),
       name,
       tiles,
-        walls,
+      walls,
       floorTextureId,
       wallTextureId,
       isPublic,
       ...(!isPublic ? { password: password.trim() } : {}),
     };
     setIsSaving(true);
-    setFeedback({ kind: 'info', title: 'Guardando tu casa', message: 'Enviando el plano a FarmCity…' });
-    socketRef.current.send(JSON.stringify({ type: 'room:create', data }));
+    setFeedback({
+      kind: 'info',
+      title: roomId ? 'Actualizando tu casa' : 'Guardando tu casa',
+      message: 'Enviando el plano a FarmCity…',
+    });
+    socketRef.current.send(JSON.stringify({ type: roomId ? 'room:update' : 'room:create', data }));
   }
 
   return (

@@ -20,6 +20,8 @@ tags:
     description: Chat operations
   - name: plaza
     description: Plaza operations
+  - name: rooms
+    description: Room persistence operations
 paths:
   /healthz:
     get:
@@ -207,6 +209,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PlazaStatus"
+
+  /rooms/mine:
+    get:
+      operationId: getMyRoom
+      tags: [rooms]
+      summary: Get the current player's saved room
+      responses:
+        "200":
+          description: Saved room
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+        "404":
+          description: No room saved yet
 
 components:
   schemas:
@@ -430,3 +447,72 @@ components:
         - onlineCount
         - totalPlayers
         - messagesLast24h
+
+    RoomTile:
+      type: object
+      properties:
+        x:
+          type: integer
+        y:
+          type: integer
+      required:
+        - x
+        - y
+
+    RoomWall:
+      type: object
+      properties:
+        x:
+          type: integer
+        y:
+          type: integer
+        side:
+          type: string
+          enum: [north, east, south, west]
+      required:
+        - x
+        - y
+        - side
+
+    Room:
+      type: object
+      properties:
+        id:
+          type: string
+        ownerId:
+          type: integer
+        name:
+          type: string
+        tiles:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoomTile"
+        walls:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoomWall"
+        doorPosition:
+          $ref: "#/components/schemas/RoomTile"
+        floorTextureId:
+          type: string
+        wallTextureId:
+          type: string
+        isPublic:
+          type: boolean
+        hasPassword:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - ownerId
+        - name
+        - tiles
+        - walls
+        - doorPosition
+        - floorTextureId
+        - wallTextureId
+        - isPublic
+        - hasPassword
+        - createdAt

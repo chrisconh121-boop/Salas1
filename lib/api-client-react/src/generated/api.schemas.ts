@@ -96,6 +96,41 @@ export interface PlazaStatus {
   messagesLast24h: number;
 }
 
+export interface RoomTile {
+  x: number;
+  y: number;
+}
+
+export type RoomWallSide = typeof RoomWallSide[keyof typeof RoomWallSide];
+
+
+export const RoomWallSide = {
+  north: 'north',
+  east: 'east',
+  south: 'south',
+  west: 'west',
+} as const;
+
+export interface RoomWall {
+  x: number;
+  y: number;
+  side: RoomWallSide;
+}
+
+export interface Room {
+  id: string;
+  ownerId: number;
+  name: string;
+  tiles: RoomTile[];
+  walls: RoomWall[];
+  doorPosition: RoomTile;
+  floorTextureId: string;
+  wallTextureId: string;
+  isPublic: boolean;
+  hasPassword: boolean;
+  createdAt: string;
+}
+
 export type GetChatMessagesParams = {
 limit?: number;
 };

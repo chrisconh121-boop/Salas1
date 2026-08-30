@@ -19,3 +19,7 @@ export * from './player';
 export * from './playerSummary';
 export * from './plazaStatus';
 export * from './registerInput';
+export * from './room';
+export * from './roomTile';
+export * from './roomWall';
+export * from './roomWallSide';

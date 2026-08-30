@@ -1,4 +1,4 @@
-import { WebSocketServer, WebSocket } from "ws";
+import { WebSocketServer, WebSocket, type RawData } from "ws";
 import { type IncomingMessage } from "http";
 import { verifyToken } from "./auth";
 import { db } from "@workspace/db";
@@ -70,6 +70,78 @@ function roomPlayer(client: GameClient): RoomPlayer {
   };
 }
 
+type RoomPayload = {
+  name?: unknown;
+  roomId?: unknown;
+  tiles?: unknown;
+  walls?: unknown;
+  floorTextureId?: unknown;
+  wallTextureId?: unknown;
+  isPublic?: unknown;
+  password?: unknown;
+};
+
+function validateRoomPayload(
+  data: RoomPayload | undefined,
+  existingPassword: string | null = null,
+):
+  | {
+      ok: true;
+      name: string;
+      tiles: Room["tiles"];
+      walls: Room["walls"];
+      doorPosition: Room["doorPosition"];
+      floorTextureId: string;
+      wallTextureId: string;
+      isPublic: boolean;
+      password: string | null;
+    }
+  | { ok: false; code: string; message: string } {
+  if (!data || typeof data.name !== "string" || data.name.trim().length === 0 || data.name.length > 50) {
+    return { ok: false, code: "INVALID_NAME", message: "El nombre debe tener entre 1 y 50 caracteres" };
+  }
+  if (
+    typeof data.floorTextureId !== "string" ||
+    data.floorTextureId.length > 30 ||
+    typeof data.wallTextureId !== "string" ||
+    data.wallTextureId.length > 30
+  ) {
+    return { ok: false, code: "INVALID_TEXTURE", message: "Las texturas deben tener como máximo 30 caracteres" };
+  }
+  if (typeof data.isPublic !== "boolean") {
+    return { ok: false, code: "INVALID_VISIBILITY", message: "isPublic debe ser booleano" };
+  }
+  if (data.password !== undefined && (typeof data.password !== "string" || data.password.length > 100)) {
+    return { ok: false, code: "INVALID_PASSWORD", message: "La contraseña debe tener como máximo 100 caracteres" };
+  }
+
+  const shape = validateRoomShape(data.tiles);
+  if (!shape.ok) return { ok: false, code: "INVALID_TILES", message: shape.message };
+
+  const wallShape = validateRoomWalls(data.walls);
+  if (!wallShape.ok) return { ok: false, code: "INVALID_WALLS", message: wallShape.message };
+
+  const password =
+    typeof data.password === "string" && data.password.length > 0
+      ? data.password
+      : existingPassword;
+  if (!data.isPublic && !password) {
+    return { ok: false, code: "PASSWORD_REQUIRED", message: "Las salas privadas requieren una contraseña" };
+  }
+
+  return {
+    ok: true,
+    name: data.name.trim(),
+    tiles: shape.tiles,
+    walls: wallShape.walls,
+    doorPosition: generateDoorPosition(shape.tiles, wallShape.walls),
+    floorTextureId: data.floorTextureId,
+    wallTextureId: data.wallTextureId,
+    isPublic: data.isPublic,
+    password: data.isPublic ? null : password,
+  };
+}
+
 async function loadRoom(roomId: string): Promise<Room | undefined> {
   const cached = roomManager.get(roomId);
   if (cached) return cached;
@@ -108,6 +180,19 @@ export function createWebSocketServer(server: import("http").Server): WebSocketS
     }
 
     const { playerId, username } = payload;
+    const pendingMessages: RawData[] = [];
+    let messageHandler: ((raw: RawData) => Promise<void>) | null = null;
+
+    // The browser can send immediately after its `open` event, while the
+    // server is still loading the player's position, avatar, and chat history.
+    // Queue those messages until the authenticated session is fully ready.
+    ws.on("message", (raw: RawData) => {
+      if (messageHandler) {
+        void messageHandler(raw);
+      } else {
+        pendingMessages.push(raw);
+      }
+    });
 
     // Get initial position
     const [pos] = await db
@@ -192,7 +277,7 @@ export function createWebSocketServer(server: import("http").Server): WebSocketS
       });
     }
 
-    ws.on("message", async (raw) => {
+    messageHandler = async (raw) => {
       let msg: {
         type: string;
         posX?: number;
@@ -209,53 +294,62 @@ export function createWebSocketServer(server: import("http").Server): WebSocketS
         return;
       }
 
-      if (msg.type === "room:create") {
-        const data = msg.data;
-        if (!data || typeof data.name !== "string" || data.name.trim().length === 0 || data.name.length > 50) {
-          sendRoomError(ws, "INVALID_NAME", "El nombre debe tener entre 1 y 50 caracteres");
-          return;
+      if (msg.type === "room:create" || msg.type === "room:update") {
+        const data = msg.data as RoomPayload | undefined;
+        let existingRoom: Room | undefined;
+
+        if (msg.type === "room:update") {
+          if (typeof data?.roomId !== "string") {
+            sendRoomError(ws, "INVALID_ROOM_ID", "roomId es requerido");
+            return;
+          }
+          existingRoom = await loadRoom(data.roomId);
+          if (!existingRoom) {
+            sendRoomError(ws, "ROOM_NOT_FOUND", "La sala no existe");
+            return;
+          }
+          if (existingRoom.ownerId !== playerId) {
+            sendRoomError(ws, "FORBIDDEN", "Solo puedes editar tu propia sala");
+            return;
+          }
         }
-        if (typeof data.floorTextureId !== "string" || data.floorTextureId.length > 30 ||
-            typeof data.wallTextureId !== "string" || data.wallTextureId.length > 30) {
-          sendRoomError(ws, "INVALID_TEXTURE", "Las texturas deben tener como máximo 30 caracteres");
-          return;
-        }
-        if (typeof data.isPublic !== "boolean") {
-          sendRoomError(ws, "INVALID_VISIBILITY", "isPublic debe ser booleano");
-          return;
-        }
-        if (data.password !== undefined && (typeof data.password !== "string" || data.password.length > 100)) {
-          sendRoomError(ws, "INVALID_PASSWORD", "La contraseña debe tener como máximo 100 caracteres");
-          return;
-        }
-        if (!data.isPublic && (!data.password || typeof data.password !== "string")) {
-          sendRoomError(ws, "PASSWORD_REQUIRED", "Las salas privadas requieren una contraseña");
+
+        const validated = validateRoomPayload(data, existingRoom?.password ?? null);
+        if (!validated.ok) {
+          sendRoomError(ws, validated.code, validated.message);
           return;
         }
 
-        const shape = validateRoomShape(data.tiles);
-        if (!shape.ok) {
-          sendRoomError(ws, "INVALID_TILES", shape.message);
-          return;
-        }
-        const wallShape = validateRoomWalls(data.walls);
-        if (!wallShape.ok) {
-          sendRoomError(ws, "INVALID_WALLS", wallShape.message);
-          return;
-        }
-        const walls = wallShape.walls;
-        const doorPosition = generateDoorPosition(shape.tiles, walls);
-        const [saved] = await db.insert(roomsTable).values({
-          ownerId: playerId,
-          name: data.name.trim(),
-          tiles: shape.tiles,
-          walls,
-          doorPosition,
-          floorTextureId: data.floorTextureId,
-          wallTextureId: data.wallTextureId,
-          isPublic: data.isPublic,
-          password: typeof data.password === "string" ? data.password : null,
-        }).returning();
+        const [saved] =
+          msg.type === "room:update" && existingRoom
+            ? await db
+                .update(roomsTable)
+                .set({
+                  name: validated.name,
+                  tiles: validated.tiles,
+                  walls: validated.walls,
+                  doorPosition: validated.doorPosition,
+                  floorTextureId: validated.floorTextureId,
+                  wallTextureId: validated.wallTextureId,
+                  isPublic: validated.isPublic,
+                  password: validated.password,
+                })
+                .where(eq(roomsTable.id, existingRoom.id))
+                .returning()
+            : await db
+                .insert(roomsTable)
+                .values({
+                  ownerId: playerId,
+                  name: validated.name,
+                  tiles: validated.tiles,
+                  walls: validated.walls,
+                  doorPosition: validated.doorPosition,
+                  floorTextureId: validated.floorTextureId,
+                  wallTextureId: validated.wallTextureId,
+                  isPublic: validated.isPublic,
+                  password: validated.password,
+                })
+                .returning();
 
         if (!saved) {
           sendRoomError(ws, "CREATE_FAILED", "No se pudo crear la sala");
@@ -269,8 +363,13 @@ export function createWebSocketServer(server: import("http").Server): WebSocketS
           password: saved.password ?? null,
           players: new Map(),
         };
-        roomManager.add(room);
-        safeSend(ws, roomMessage("room:created", { roomId: room.id }));
+        if (msg.type === "room:update") {
+          roomManager.update(room);
+          safeSend(ws, roomMessage("room:updated", { roomId: room.id }));
+        } else {
+          roomManager.add(room);
+          safeSend(ws, roomMessage("room:created", { roomId: room.id }));
+        }
         return;
       }
 
@@ -385,7 +484,11 @@ export function createWebSocketServer(server: import("http").Server): WebSocketS
           playerId,
         );
       }
-    });
+    };
+
+    for (const raw of pendingMessages.splice(0)) {
+      void messageHandler(raw);
+    }
 
     ws.on("close", async () => {
       // A fast reconnect can replace this socket in the map before the old

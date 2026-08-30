@@ -5,6 +5,7 @@ import playersRouter from "./players";
 import avatarRouter from "./avatar";
 import chatRouter from "./chat";
 import plazaRouter from "./plaza";
+import roomsRouter from "./rooms";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(playersRouter);
 router.use(avatarRouter);
 router.use(chatRouter);
 router.use(plazaRouter);
+router.use(roomsRouter);
 
 export default router;

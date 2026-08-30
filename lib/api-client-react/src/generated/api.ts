@@ -32,7 +32,8 @@ import type {
   Player,
   PlayerSummary,
   PlazaStatus,
-  RegisterInput
+  RegisterInput,
+  Room
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -957,6 +958,83 @@ export function useGetPlazaStatus<TData = Awaited<ReturnType<typeof getPlazaStat
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetPlazaStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMyRoomUrl = () => {
+
+
+
+
+  return `/api/rooms/mine`
+}
+
+/**
+ * @summary Get the current player's saved room
+ */
+export const getMyRoom = async ( options?: RequestInit): Promise<Room> => {
+
+  return customFetch<Room>(getGetMyRoomUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMyRoomQueryKey = () => {
+    return [
+    `/api/rooms/mine`
+    ] as const;
+    }
+
+
+export const getGetMyRoomQueryOptions = <TData = Awaited<ReturnType<typeof getMyRoom>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyRoom>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMyRoomQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyRoom>>> = ({ signal }) => getMyRoom({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMyRoom>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMyRoomQueryResult = NonNullable<Awaited<ReturnType<typeof getMyRoom>>>
+export type GetMyRoomQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get the current player's saved room
+ */
+
+export function useGetMyRoom<TData = Awaited<ReturnType<typeof getMyRoom>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyRoom>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMyRoomQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -238,3 +238,31 @@ export const GetPlazaStatusResponse = zod.object({
 })
 
 
+/**
+ * @summary Get the current player's saved room
+ */
+export const GetMyRoomResponse = zod.object({
+  "id": zod.string(),
+  "ownerId": zod.number(),
+  "name": zod.string(),
+  "tiles": zod.array(zod.object({
+  "x": zod.number(),
+  "y": zod.number()
+})),
+  "walls": zod.array(zod.object({
+  "x": zod.number(),
+  "y": zod.number(),
+  "side": zod.enum(['north', 'east', 'south', 'west'])
+})),
+  "doorPosition": zod.object({
+  "x": zod.number(),
+  "y": zod.number()
+}),
+  "floorTextureId": zod.string(),
+  "wallTextureId": zod.string(),
+  "isPublic": zod.boolean(),
+  "hasPassword": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+

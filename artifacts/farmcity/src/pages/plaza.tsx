@@ -9,7 +9,9 @@ import { OtherPlayerPanel } from '@/components/panels/other-player-panel';
 import { WorldObjectPanel } from '@/components/panels/world-object-panel';
 import type { WorldObjectType } from '@/components/panels/world-object-panel';
 import {
+  getGetMyRoomQueryKey,
   getGetPlazaStatusQueryKey,
+  useGetMyRoom,
   useGetPlazaStatus,
 } from '@workspace/api-client-react';
 import type { Avatar, PlayerSummary } from '@workspace/api-client-react';
@@ -93,6 +95,32 @@ export default function Plaza() {
   const { data: plazaStatus } = useGetPlazaStatus({
     query: { queryKey: getGetPlazaStatusQueryKey(), refetchInterval: 15000 },
   });
+  const { data: savedRoom } = useGetMyRoom({
+    query: {
+      enabled: !!token,
+      queryKey: getGetMyRoomQueryKey(),
+      retry: false,
+    },
+  });
+
+  useEffect(() => {
+    if (!savedRoom?.tiles?.length) return;
+    const minX = Math.min(...savedRoom.tiles.map((tile) => tile.x));
+    const minY = Math.min(...savedRoom.tiles.map((tile) => tile.y));
+    setRoomTiles(savedRoom.tiles.map((tile) => ({ x: tile.x - minX, y: tile.y - minY })));
+    setRoomWalls(
+      savedRoom.walls.map((wall) => ({
+        ...wall,
+        x: wall.x - minX,
+        y: wall.y - minY,
+      })),
+    );
+    try {
+      window.localStorage.setItem('farmcity_current_room', JSON.stringify(savedRoom));
+    } catch {
+      // The server remains the source of truth when storage is unavailable.
+    }
+  }, [savedRoom?.id]);
 
   // Redirect if not logged in
   useEffect(() => {

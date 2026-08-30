@@ -133,6 +133,14 @@ export class RoomManager {
     this.rooms.set(room.id, room);
   }
 
+  update(room: Room): void {
+    const current = this.rooms.get(room.id);
+    this.rooms.set(room.id, {
+      ...room,
+      players: current?.players ?? new Map(),
+    });
+  }
+
   get(roomId: string): Room | undefined {
     return this.rooms.get(roomId);
   }
