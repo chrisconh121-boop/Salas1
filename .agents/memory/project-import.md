@@ -7,4 +7,4 @@ When a conversation is moved into a project, preserved files may live under `.lo
 
 **Why:** Assuming the new root already contains the preserved source can leave the user with a blank scaffold instead of the imported app.
 
-**How to apply:** On the first turn after a handoff, inspect the preservation directory and restore the app packages and shared libraries before starting workflows.
+**How to apply:** On the first turn after a handoff, inspect the preservation directory, restore the app packages and shared libraries, regenerate API clients, and apply the development database schema before testing authenticated flows.
