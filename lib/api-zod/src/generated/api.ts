@@ -266,3 +266,17 @@ export const GetMyRoomResponse = zod.object({
 })
 
 
+/**
+ * @summary List public rooms available to join
+ */
+export const GetPublicRoomsResponseItem = zod.object({
+  "id": zod.string(),
+  "ownerId": zod.number(),
+  "ownerUsername": zod.string(),
+  "name": zod.string(),
+  "hasPassword": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+export const GetPublicRoomsResponse = zod.array(GetPublicRoomsResponseItem)
+
+

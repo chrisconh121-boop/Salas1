@@ -131,6 +131,15 @@ export interface Room {
   createdAt: string;
 }
 
+export interface RoomSummary {
+  id: string;
+  ownerId: number;
+  ownerUsername: string;
+  name: string;
+  hasPassword: boolean;
+  createdAt: string;
+}
+
 export type GetChatMessagesParams = {
 limit?: number;
 };

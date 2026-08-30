@@ -46,6 +46,7 @@ type PanelState =
 export default function Plaza() {
   const { token, player: authPlayer, logout } = useAuth();
   const [, setLocation] = useLocation();
+  const roomIdFromUrl = new URLSearchParams(window.location.search).get('room');
 
   const [remotePlayers, setRemotePlayers] = useState<Record<number, WsPlayer>>({});
   // Position packets update this ref without forcing a React render. The
@@ -60,6 +61,7 @@ export default function Plaza() {
   const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
   const [chatOpen, setChatOpen] = useState(false);
   const [roomTiles, setRoomTiles] = useState<Array<{ x: number; y: number }> | undefined>(() => {
+    if (roomIdFromUrl) return undefined;
     try {
       const saved = JSON.parse(window.localStorage.getItem('farmcity_current_room') ?? 'null') as RoomSnapshot | null;
       if (!saved?.tiles?.length) return undefined;
@@ -71,6 +73,7 @@ export default function Plaza() {
     }
   });
   const [roomWalls, setRoomWalls] = useState<RoomWall[]>(() => {
+    if (roomIdFromUrl) return [];
     try {
       const saved = JSON.parse(window.localStorage.getItem('farmcity_current_room') ?? 'null') as RoomSnapshot | null;
       if (!saved?.tiles?.length || !Array.isArray(saved.walls)) return [];
@@ -169,6 +172,12 @@ export default function Plaza() {
         // The server sends the latest persisted history after opening. Clear
         // the local list first so reconnects cannot duplicate old messages.
         setChatMessages([]);
+        if (roomIdFromUrl) {
+          ws.send(JSON.stringify({
+            type: 'room:join',
+            data: { roomId: roomIdFromUrl },
+          }));
+        }
       };
 
       ws.onclose = () => {
@@ -308,6 +317,18 @@ export default function Plaza() {
               remotePlayersRef.current = nextRemotePlayers;
               remoteActionsRef.current.delete(playerId);
               setPanel((p) => (p?.kind === 'player' && p.player.id === playerId ? null : p));
+              break;
+            }
+            case 'room:error': {
+              const roomError = msg.data as { message?: string } | undefined;
+              if (roomIdFromUrl) {
+                setConnectionState('reconnecting');
+                setPanel(null);
+                setChatMessages([]);
+              }
+              if (roomError?.message) {
+                console.warn(roomError.message);
+              }
               break;
             }
           }
@@ -610,6 +631,7 @@ export default function Plaza() {
         >
           {[
             { icon: HomeIcon, label: 'Mi Casa', badge: null, action: () => setLocation('/room-editor') },
+            { emoji: '🚪', label: 'Salas', badge: null, action: () => setLocation('/rooms') },
             { emoji: '🎒', label: 'Inventario', badge: null },
             { emoji: '📬', label: 'Solicitudes', badge: 0 },
             { emoji: '⚙️', label: 'Ajustes', badge: null },
@@ -618,7 +640,7 @@ export default function Plaza() {
               key={label}
               onClick={action}
               className="flex flex-col items-center justify-center py-2 px-4 gap-0.5 transition-opacity hover:opacity-70 active:scale-95 relative"
-              style={{ background: 'transparent', border: 'none', minWidth: 70 }}
+              style={{ background: 'transparent', border: 'none', minWidth: 64 }}
             >
               <span className="text-2xl leading-none relative">
                 {ActionIcon ? <ActionIcon size={24} strokeWidth={1.8} /> : emoji}

@@ -12,6 +12,7 @@ import Home from '@/pages/home';
 import AvatarCreator from '@/pages/avatar';
 import Plaza from '@/pages/plaza';
 import RoomEditor from '@/pages/room-editor';
+import Rooms from '@/pages/rooms';
 import NotFound from '@/pages/not-found';
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/avatar" component={AvatarCreator} />
       <Route path="/plaza" component={Plaza} />
       <Route path="/room-editor" component={RoomEditor} />
+      <Route path="/rooms" component={Rooms} />
       <Route component={NotFound} />
     </Switch>
   );
