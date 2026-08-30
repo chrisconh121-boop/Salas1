@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/farmcity-app/"
+title = "FarmCity"
+description = "A pixel-art social farming world where players create avatars, explore a shared plaza, chat, and meet other players."
+version = "1.0.0"
+id = "artifacts/farmcity-app"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/farmcity-app/" ]
+localPort = 20779
+
+[services.development]
+run = "pnpm --filter @workspace/farmcity-app run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/farmcity-app", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/farmcity-app/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20779"
+BASE_PATH = "/farmcity-app/"

@@ -1,0 +1,432 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: FarmCity API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: players
+    description: Player operations
+  - name: avatar
+    description: Avatar operations
+  - name: chat
+    description: Chat operations
+  - name: plaza
+    description: Plaza operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new player
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Player registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutResult"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current player
+      responses:
+        "200":
+          description: Current player
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+
+  /players/online:
+    get:
+      operationId: getPlayersOnline
+      tags: [players]
+      summary: Get online players
+      responses:
+        "200":
+          description: Online players
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlayerSummary"
+
+  /players/{id}:
+    get:
+      operationId: getPlayer
+      tags: [players]
+      summary: Get player by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Player data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+
+  /avatar:
+    get:
+      operationId: getAvatar
+      tags: [avatar]
+      summary: Get current player's avatar
+      responses:
+        "200":
+          description: Avatar
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Avatar"
+    post:
+      operationId: saveAvatar
+      tags: [avatar]
+      summary: Create or update avatar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvatarInput"
+      responses:
+        "200":
+          description: Saved avatar
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Avatar"
+
+  /avatar/options:
+    get:
+      operationId: getAvatarOptions
+      tags: [avatar]
+      summary: Get avatar customization options
+      responses:
+        "200":
+          description: Avatar options
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvatarOptions"
+
+  /chat/messages:
+    get:
+      operationId: getChatMessages
+      tags: [chat]
+      summary: Get recent chat messages
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Chat messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatMessage"
+
+  /plaza/status:
+    get:
+      operationId: getPlazaStatus
+      tags: [plaza]
+      summary: Get plaza status
+      responses:
+        "200":
+          description: Plaza status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlazaStatus"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    Avatar:
+      type: object
+      properties:
+        id:
+          type: integer
+        playerId:
+          type: integer
+        skinColor:
+          type: string
+        hairColor:
+          type: string
+        hairStyle:
+          type: string
+        shirtColor:
+          type: string
+        pantsColor:
+          type: string
+        hatStyle:
+          type: ["string", "null"]
+        accessory:
+          type: ["string", "null"]
+      required:
+        - id
+        - playerId
+        - skinColor
+        - hairColor
+        - hairStyle
+        - shirtColor
+        - pantsColor
+        - hatStyle
+        - accessory
+
+    AvatarInput:
+      type: object
+      properties:
+        skinColor:
+          type: string
+        hairColor:
+          type: string
+        hairStyle:
+          type: string
+        shirtColor:
+          type: string
+        pantsColor:
+          type: string
+        hatStyle:
+          type: ["string", "null"]
+        accessory:
+          type: ["string", "null"]
+      required:
+        - skinColor
+        - hairColor
+        - hairStyle
+        - shirtColor
+        - pantsColor
+
+    AvatarOptions:
+      type: object
+      properties:
+        skinColors:
+          type: array
+          items:
+            type: string
+        hairColors:
+          type: array
+          items:
+            type: string
+        hairStyles:
+          type: array
+          items:
+            type: string
+        shirtColors:
+          type: array
+          items:
+            type: string
+        pantColors:
+          type: array
+          items:
+            type: string
+        hatStyles:
+          type: array
+          items:
+            type: string
+        accessories:
+          type: array
+          items:
+            type: string
+      required:
+        - skinColors
+        - hairColors
+        - hairStyles
+        - shirtColors
+        - pantColors
+        - hatStyles
+        - accessories
+
+    Player:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        isOnline:
+          type: boolean
+        avatar:
+          oneOf:
+            - $ref: "#/components/schemas/Avatar"
+            - type: "null"
+      required:
+        - id
+        - username
+        - createdAt
+        - isOnline
+
+    PlayerSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        avatar:
+          oneOf:
+            - $ref: "#/components/schemas/Avatar"
+            - type: "null"
+        posX:
+          type: ["number", "null"]
+        posY:
+          type: ["number", "null"]
+      required:
+        - id
+        - username
+
+    RegisterInput:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required:
+        - username
+        - password
+
+    LoginInput:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required:
+        - username
+        - password
+
+    AuthResponse:
+      type: object
+      properties:
+        player:
+          $ref: "#/components/schemas/Player"
+        token:
+          type: string
+      required:
+        - player
+        - token
+
+    LogoutResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success
+
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        playerId:
+          type: integer
+        username:
+          type: string
+        message:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - playerId
+        - username
+        - message
+        - createdAt
+
+    PlazaStatus:
+      type: object
+      properties:
+        onlineCount:
+          type: integer
+        totalPlayers:
+          type: integer
+        messagesLast24h:
+          type: integer
+      required:
+        - onlineCount
+        - totalPlayers
+        - messagesLast24h

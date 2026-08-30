@@ -1,0 +1,2 @@
+- [Project import handoff](project-import.md) — restore preserved source files after moving a conversation into a persistent project
+- [Generated API clients](generated-client-sync.md) — regenerate typed clients after restoring source and OpenAPI files from the repository
