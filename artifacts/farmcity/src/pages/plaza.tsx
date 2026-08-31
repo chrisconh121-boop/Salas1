@@ -107,7 +107,10 @@ export default function Plaza() {
   });
 
   useEffect(() => {
-    if (!savedRoom?.tiles?.length) return;
+    // An explicit room URL is always authoritative. Its snapshot arrives
+    // through WebSocket, so the latest personal-room query must not overwrite
+    // it with stale data while React Query is revalidating.
+    if (roomIdFromUrl || !savedRoom?.tiles?.length) return;
     const minX = Math.min(...savedRoom.tiles.map((tile) => tile.x));
     const minY = Math.min(...savedRoom.tiles.map((tile) => tile.y));
     setRoomTiles(savedRoom.tiles.map((tile) => ({ x: tile.x - minX, y: tile.y - minY })));
@@ -123,7 +126,7 @@ export default function Plaza() {
     } catch {
       // The server remains the source of truth when storage is unavailable.
     }
-  }, [savedRoom?.id]);
+  }, [roomIdFromUrl, savedRoom]);
 
   // Redirect if not logged in
   useEffect(() => {

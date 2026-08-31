@@ -285,7 +285,7 @@ export default function RoomEditor() {
           // The editor is only the setup step. Once the server confirms the
           // room, open the playable isometric view instead of leaving the
           // player on the tile-drawing canvas.
-          setLocation('/plaza');
+          setLocation(snapshot.id ? `/plaza?room=${encodeURIComponent(snapshot.id)}` : '/plaza');
           return;
         }
 
