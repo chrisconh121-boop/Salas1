@@ -360,6 +360,36 @@
   line-height: 1.5;
 }
 
+.room-list-section {
+  margin-top: 28px;
+}
+
+.room-list-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 11px;
+}
+
+.room-list-section-heading h2 {
+  margin: 3px 0 0;
+  color: #3d2010;
+  font: 28px/0.95 'VT323', monospace;
+}
+
+.room-list-count {
+  display: inline-flex;
+  align-items: center;
+  min-width: 34px;
+  justify-content: center;
+  padding: 3px 8px;
+  border: 2px solid #d9c39a;
+  background: #fff4ce;
+  color: #775c43;
+  font: 16px 'VT323', monospace;
+}
+
 .room-list-create {
   display: inline-flex;
   align-items: center;
@@ -388,6 +418,87 @@
 .room-list-grid {
   display: grid;
   gap: 10px;
+}
+
+.room-list-owned-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.room-list-owned-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 15px;
+  padding: 13px;
+  border: 2px solid #d9c39a;
+  border-left: 6px solid #a36b2b;
+  background: #fffdf5;
+}
+
+.room-list-owned-card-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-width: 0;
+}
+
+.room-list-owned-card .room-list-card-icon {
+  flex: 0 0 auto;
+}
+
+.room-list-owned-card .room-list-card-copy {
+  flex: 1;
+}
+
+.room-list-owned-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.room-list-owned-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 2px solid transparent;
+  font: 16px 'VT323', monospace;
+  cursor: pointer;
+  transition: filter 120ms ease, transform 120ms ease;
+}
+
+.room-list-owned-actions button:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.room-list-owned-actions button:focus-visible,
+.room-list-refresh:focus-visible,
+.room-list-back:focus-visible,
+.room-list-footer button:focus-visible {
+  outline: 3px solid #ffd54f;
+  outline-offset: 2px;
+}
+
+.room-list-owned-actions button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.room-list-edit {
+  border-color: #718a52 !important;
+  background: #e8f0d7;
+  color: #536f3d;
+}
+
+.room-list-delete {
+  border-color: #d8907e !important;
+  background: #fff0e9;
+  color: #a73b2b;
 }
 
 .room-list-card {
@@ -566,6 +677,14 @@
     grid-template-columns: 40px minmax(0, 1fr) auto;
     gap: 10px;
     padding: 10px;
+  }
+
+  .room-list-owned-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .room-list-owned-actions button {
+    flex: 1;
   }
 
   .room-list-card-icon {

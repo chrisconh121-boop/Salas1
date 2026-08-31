@@ -1048,6 +1048,154 @@ export function useGetMyRoom<TData = Awaited<ReturnType<typeof getMyRoom>>, TErr
 
 
 
+export const getGetMyRoomsUrl = () => {
+
+
+
+
+  return `/api/rooms/mine/all`
+}
+
+/**
+ * @summary List all rooms owned by the current player
+ */
+export const getMyRooms = async ( options?: RequestInit): Promise<Room[]> => {
+
+  return customFetch<Room[]>(getGetMyRoomsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMyRoomsQueryKey = () => {
+    return [
+    `/api/rooms/mine/all`
+    ] as const;
+    }
+
+
+export const getGetMyRoomsQueryOptions = <TData = Awaited<ReturnType<typeof getMyRooms>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyRooms>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMyRoomsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyRooms>>> = ({ signal }) => getMyRooms({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMyRooms>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMyRoomsQueryResult = NonNullable<Awaited<ReturnType<typeof getMyRooms>>>
+export type GetMyRoomsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all rooms owned by the current player
+ */
+
+export function useGetMyRooms<TData = Awaited<ReturnType<typeof getMyRooms>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyRooms>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMyRoomsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDeleteMyRoomUrl = (roomId: string,) => {
+
+
+
+
+  return `/api/rooms/mine/${roomId}`
+}
+
+/**
+ * @summary Delete a room owned by the current player
+ */
+export const deleteMyRoom = async (roomId: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteMyRoomUrl(roomId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteMyRoomMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMyRoom>>, TError,{roomId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteMyRoom>>, TError,{roomId: string}, TContext> => {
+
+const mutationKey = ['deleteMyRoom'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMyRoom>>, {roomId: string}> = (props) => {
+          const {roomId} = props ?? {};
+
+          return  deleteMyRoom(roomId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteMyRoomMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMyRoom>>>
+
+    export type DeleteMyRoomMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete a room owned by the current player
+ */
+export const useDeleteMyRoom = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMyRoom>>, TError,{roomId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteMyRoom>>,
+        TError,
+        {roomId: string},
+        TContext
+      > => {
+      return useMutation(getDeleteMyRoomMutationOptions(options));
+    }
+
 export const getGetPublicRoomsUrl = () => {
 
 

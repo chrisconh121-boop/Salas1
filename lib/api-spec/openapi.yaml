@@ -225,6 +225,40 @@ paths:
         "404":
           description: No room saved yet
 
+  /rooms/mine/all:
+    get:
+      operationId: getMyRooms
+      tags: [rooms]
+      summary: List all rooms owned by the current player
+      responses:
+        "200":
+          description: Rooms owned by the current player
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Room"
+
+  /rooms/mine/{roomId}:
+    delete:
+      operationId: deleteMyRoom
+      tags: [rooms]
+      summary: Delete a room owned by the current player
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Room deleted
+        "400":
+          description: Invalid room ID
+        "404":
+          description: Room not found
+
   /rooms/public:
     get:
       operationId: getPublicRooms

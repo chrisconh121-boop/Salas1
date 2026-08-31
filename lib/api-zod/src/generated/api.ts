@@ -267,6 +267,45 @@ export const GetMyRoomResponse = zod.object({
 
 
 /**
+ * @summary List all rooms owned by the current player
+ */
+export const GetMyRoomsResponseItem = zod.object({
+  "id": zod.string(),
+  "ownerId": zod.number(),
+  "name": zod.string(),
+  "tiles": zod.array(zod.object({
+  "x": zod.number(),
+  "y": zod.number()
+})),
+  "walls": zod.array(zod.object({
+  "x": zod.number(),
+  "y": zod.number(),
+  "side": zod.enum(['north', 'east', 'south', 'west'])
+})),
+  "doorPosition": zod.object({
+  "x": zod.number(),
+  "y": zod.number()
+}),
+  "floorTextureId": zod.string(),
+  "wallTextureId": zod.string(),
+  "isPublic": zod.boolean(),
+  "hasPassword": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+export const GetMyRoomsResponse = zod.array(GetMyRoomsResponseItem)
+
+
+/**
+ * @summary Delete a room owned by the current player
+ */
+export const DeleteMyRoomParams = zod.object({
+  "roomId": zod.coerce.string()
+})
+
+export const DeleteMyRoomResponse = zod.void()
+
+
+/**
  * @summary List public rooms available to join
  */
 export const GetPublicRoomsResponseItem = zod.object({

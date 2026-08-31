@@ -8,7 +8,7 @@ import { logger } from "./logger";
 import {
   broadcastToRoom,
   generateDoorPosition,
-  RoomManager,
+  roomManager,
   validateRoomShape,
   validateRoomWalls,
   type Room,
@@ -38,7 +38,6 @@ interface AvatarSnapshot {
 }
 
 const clients = new Map<number, GameClient>();
-const roomManager = new RoomManager();
 const MAX_ROOMS_PER_PLAYER = 10;
 
 function safeSend(ws: WebSocket, data: unknown): void {

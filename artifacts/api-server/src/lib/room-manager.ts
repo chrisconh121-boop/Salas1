@@ -145,6 +145,16 @@ export class RoomManager {
     return this.rooms.get(roomId);
   }
 
+  remove(roomId: string): void {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+
+    for (const playerId of room.players.keys()) {
+      this.playerRooms.delete(playerId);
+    }
+    this.rooms.delete(roomId);
+  }
+
   getPlayerRoomId(playerId: number): string | undefined {
     return this.playerRooms.get(playerId);
   }
@@ -172,6 +182,8 @@ export class RoomManager {
     return { ...roomData, players: Array.from(players.values()) };
   }
 }
+
+export const roomManager = new RoomManager();
 
 export function broadcastToRoom(
   roomManager: RoomManager,

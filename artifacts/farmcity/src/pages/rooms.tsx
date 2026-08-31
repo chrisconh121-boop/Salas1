@@ -1,8 +1,13 @@
 import { useEffect } from 'react';
-import { ArrowLeft, ArrowRight, DoorOpen, LockKeyhole, Plus, RefreshCw } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, ArrowRight, DoorOpen, Edit3, LockKeyhole, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useLocation } from 'wouter';
 import {
+  getGetMyRoomsQueryKey,
+  getGetMyRoomQueryKey,
   getGetPublicRoomsQueryKey,
+  useDeleteMyRoom,
+  useGetMyRooms,
   useGetPublicRooms,
 } from '@workspace/api-client-react';
 import { useAuth } from '@/contexts/auth-context';
@@ -18,8 +23,16 @@ function formatRoomDate(value: string): string {
 }
 
 export default function Rooms() {
-  const { token } = useAuth();
+  const { token, player } = useAuth();
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const myRoomsQuery = useGetMyRooms({
+    query: {
+      enabled: !!token,
+      queryKey: getGetMyRoomsQueryKey(),
+      retry: false,
+    },
+  });
   const roomsQuery = useGetPublicRooms({
     query: {
       enabled: !!token,
@@ -28,12 +41,35 @@ export default function Rooms() {
       retry: false,
     },
   });
+  const deleteRoomMutation = useDeleteMyRoom({
+    mutation: {
+      onSuccess: async () => {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: getGetMyRoomsQueryKey() }),
+          queryClient.invalidateQueries({ queryKey: getGetMyRoomQueryKey() }),
+          queryClient.invalidateQueries({ queryKey: getGetPublicRoomsQueryKey() }),
+        ]);
+      },
+    },
+  });
 
   useEffect(() => {
     if (!token) setLocation('/');
   }, [token, setLocation]);
 
   if (!token) return null;
+
+  function handleDelete(roomId: string, roomName: string) {
+    if (deleteRoomMutation.isPending) return;
+    const confirmed = window.confirm(
+      `¿Eliminar "${roomName}"? Esta acción no se puede deshacer.`,
+    );
+    if (confirmed) {
+      deleteRoomMutation.mutate({ roomId });
+    }
+  }
+
+  const publicRooms = roomsQuery.data?.filter((room) => room.ownerId !== player?.id) ?? [];
 
   return (
     <main className="room-list-page">
@@ -86,6 +122,88 @@ export default function Rooms() {
             </button>
           </div>
 
+          <section className="room-list-section" aria-labelledby="my-rooms-title">
+            <div className="room-list-section-heading">
+              <div>
+                <span className="room-list-kicker">Tu colección</span>
+                <h2 id="my-rooms-title">Mis salas</h2>
+              </div>
+              <span className="room-list-count">
+                {myRoomsQuery.data?.length ?? 0}/10
+              </span>
+            </div>
+
+            {myRoomsQuery.isLoading && (
+              <div className="room-list-state" role="status">
+                <span className="room-list-loader" aria-hidden="true" />
+                Cargando tus salas…
+              </div>
+            )}
+
+            {myRoomsQuery.isError && (
+              <div className="room-list-state room-list-state-error" role="alert">
+                No se pudieron cargar tus salas. Intenta actualizar nuevamente.
+              </div>
+            )}
+
+            {!myRoomsQuery.isLoading && !myRoomsQuery.isError && myRoomsQuery.data?.length === 0 && (
+              <div className="room-list-state room-list-empty">
+                <span aria-hidden="true">🏡</span>
+                <strong>Aún no tienes salas</strong>
+                <span>Crea tu primera sala con el botón de arriba.</span>
+              </div>
+            )}
+
+            {!!myRoomsQuery.data?.length && (
+              <div className="room-list-owned-grid" aria-label="Mis salas">
+                {myRoomsQuery.data.map((room) => (
+                  <article key={room.id} className="room-list-owned-card">
+                    <div className="room-list-owned-card-main">
+                      <span className="room-list-card-icon" aria-hidden="true">🏡</span>
+                      <div className="room-list-card-copy">
+                        <strong>{room.name}</strong>
+                        <span className="room-list-owner">
+                          {room.isPublic ? 'Pública' : 'Privada'} · Creada el {formatRoomDate(room.createdAt)}
+                        </span>
+                        <span className="room-list-id">
+                          ID: <code>{room.id}</code>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="room-list-owned-actions">
+                      <button
+                        type="button"
+                        className="room-list-edit"
+                        onClick={() => setLocation(`/room-editor?room=${encodeURIComponent(room.id)}`)}
+                        data-testid={`button-edit-room-${room.id}`}
+                      >
+                        <Edit3 size={14} /> Editar
+                      </button>
+                      <button
+                        type="button"
+                        className="room-list-delete"
+                        onClick={() => handleDelete(room.id, room.name)}
+                        disabled={deleteRoomMutation.isPending}
+                        data-testid={`button-delete-room-${room.id}`}
+                      >
+                        <Trash2 size={14} /> Eliminar
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="room-list-section" aria-labelledby="public-rooms-title">
+            <div className="room-list-section-heading">
+              <div>
+                <span className="room-list-kicker">Explora nuevos rincones</span>
+                <h2 id="public-rooms-title">Salas de la comunidad</h2>
+              </div>
+              <span className="room-list-count">{publicRooms.length}</span>
+            </div>
+
           {roomsQuery.isLoading && (
             <div className="room-list-state" role="status">
               <span className="room-list-loader" aria-hidden="true" />
@@ -99,7 +217,7 @@ export default function Rooms() {
             </div>
           )}
 
-          {!roomsQuery.isLoading && !roomsQuery.isError && roomsQuery.data?.length === 0 && (
+          {!roomsQuery.isLoading && !roomsQuery.isError && publicRooms.length === 0 && (
             <div className="room-list-state room-list-empty">
               <span aria-hidden="true">🌱</span>
               <strong>Aún no hay salas públicas</strong>
@@ -107,9 +225,9 @@ export default function Rooms() {
             </div>
           )}
 
-          {!!roomsQuery.data?.length && (
+          {!!publicRooms.length && (
             <div className="room-list-grid" aria-label="Salas públicas">
-              {roomsQuery.data.map((room) => (
+              {publicRooms.map((room) => (
                 <button
                   key={room.id}
                   type="button"
@@ -138,6 +256,7 @@ export default function Rooms() {
               ))}
             </div>
           )}
+          </section>
 
           <footer className="room-list-footer">
             <span>Las salas privadas no aparecen en este listado.</span>

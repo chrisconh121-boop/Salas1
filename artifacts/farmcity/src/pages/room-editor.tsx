@@ -18,8 +18,10 @@ import { useAuth } from '@/contexts/auth-context';
 import { RoomEditorCanvas, type RoomTile } from '@/components/room-editor-canvas';
 import type { RoomWall } from '@/components/isometric-canvas';
 import {
+  getGetMyRoomsQueryKey,
   getGetMyRoomQueryKey,
   getGetPublicRoomsQueryKey,
+  useGetMyRooms,
   useGetMyRoom,
 } from '@workspace/api-client-react';
 
@@ -85,7 +87,9 @@ export default function RoomEditor() {
   const { token } = useAuth();
   const [location, setLocation] = useLocation();
   const queryClient = useQueryClient();
-  const isNewRoom = new URLSearchParams(location.split('?')[1] ?? '').get('new') === '1';
+  const searchParams = new URLSearchParams(location.split('?')[1] ?? '');
+  const isNewRoom = searchParams.get('new') === '1';
+  const roomIdFromUrl = searchParams.get('room');
   const socketRef = useRef<WebSocket | null>(null);
   const passwordRef = useRef('');
   const [tiles, setTiles] = useState<RoomTile[]>(INITIAL_TILES);
@@ -111,6 +115,16 @@ export default function RoomEditor() {
       retry: false,
     },
   });
+  const { data: myRooms } = useGetMyRooms({
+    query: {
+      enabled: !!token && !isNewRoom && !!roomIdFromUrl,
+      queryKey: getGetMyRoomsQueryKey(),
+      retry: false,
+    },
+  });
+  const selectedRoom = roomIdFromUrl
+    ? myRooms?.find((room) => room.id === roomIdFromUrl)
+    : savedRoom;
 
   const perimeter = useMemo(() => countPerimeter(tiles), [tiles]);
 
@@ -119,22 +133,33 @@ export default function RoomEditor() {
   }, [password]);
 
   useEffect(() => {
-    if (isNewRoom || !savedRoom) return;
-    setRoomId(savedRoom.id);
-    setHasSavedPassword(savedRoom.hasPassword);
-    setRoomName(savedRoom.name);
-    setTiles(savedRoom.tiles);
-    setWalls(savedRoom.walls);
-    setFloorTextureId(savedRoom.floorTextureId);
-    setWallTextureId(savedRoom.wallTextureId);
-    setIsPublic(savedRoom.isPublic);
+    if (isNewRoom || !selectedRoom) return;
+    setRoomId(selectedRoom.id);
+    setHasSavedPassword(selectedRoom.hasPassword);
+    setRoomName(selectedRoom.name);
+    setTiles(selectedRoom.tiles);
+    setWalls(selectedRoom.walls);
+    setFloorTextureId(selectedRoom.floorTextureId);
+    setWallTextureId(selectedRoom.wallTextureId);
+    setIsPublic(selectedRoom.isPublic);
     setPassword('');
     setFeedback({
       kind: 'success',
-      title: 'Casa recuperada',
-      message: 'Tus cambios anteriores están listos para seguir editándolos.',
+      title: roomIdFromUrl ? 'Sala lista para editar' : 'Casa recuperada',
+      message: roomIdFromUrl
+        ? 'Puedes ajustar el plano y guardar los cambios.'
+        : 'Tus cambios anteriores están listos para seguir editándolos.',
     });
-  }, [isNewRoom, savedRoom?.id]);
+  }, [isNewRoom, roomIdFromUrl, selectedRoom?.id]);
+
+  useEffect(() => {
+    if (isNewRoom || !roomIdFromUrl || !myRooms || selectedRoom) return;
+    setFeedback({
+      kind: 'error',
+      title: 'Sala no encontrada',
+      message: 'Esa sala no existe o no pertenece a tu cuenta. Regresa a Mis salas para elegir otra.',
+    });
+  }, [isNewRoom, myRooms, roomIdFromUrl, selectedRoom]);
 
   useEffect(() => {
     if (!isNewRoom) return;
@@ -207,6 +232,7 @@ export default function RoomEditor() {
           setRoomId(message.data.roomId);
           setIsSaving(false);
           void queryClient.invalidateQueries({ queryKey: getGetMyRoomQueryKey() });
+          void queryClient.invalidateQueries({ queryKey: getGetMyRoomsQueryKey() });
           void queryClient.invalidateQueries({ queryKey: getGetPublicRoomsQueryKey() });
 
           if (message.type === 'room:created' && isNewRoom) {
