@@ -230,28 +230,6 @@ export function createWebSocketServer(server: import("http").Server): WebSocketS
 
     logger.info({ playerId, username }, "WebSocket player connected");
 
-    // Notify others: player joined
-    broadcast(
-      {
-        type: "player_joined",
-        player: { id: playerId, username, posX, posY, avatar: avatar ?? undefined },
-      },
-      playerId,
-    );
-
-    // Send current players list to new client
-    const currentPlayers = Array.from(clients.values())
-      .filter((c) => c.playerId !== playerId)
-      .map((c) => ({
-        id: c.playerId,
-        username: c.username,
-        posX: c.posX,
-        posY: c.posY,
-        avatar: c.avatar,
-      }));
-
-    safeSend(ws, { type: "players_update", players: currentPlayers });
-
     // Send initial chat history
     const recentMessages = await db
       .select({
@@ -405,31 +383,48 @@ export function createWebSocketServer(server: import("http").Server): WebSocketS
           return;
         }
 
-        const previousRoomId = roomManager.getPlayerRoomId(playerId);
-        if (previousRoomId === room.id) {
-          safeSend(ws, roomMessage("room:snapshot", roomManager.snapshot(room)));
+        const currentRoomId = roomManager.getPlayerRoomId(playerId);
+        if (currentRoomId === room.id) {
+          safeSend(ws, roomMessage("room:state", roomManager.snapshot(room)));
           return;
         }
-        if (previousRoomId && previousRoomId !== room.id) {
+        if (currentRoomId) {
           roomManager.removePlayer(playerId);
-          broadcastToRoom(roomManager, previousRoomId, clients, roomMessage("room:player_left", { playerId }));
+          broadcastToRoom(
+            roomManager,
+            currentRoomId,
+            clients,
+            roomMessage("player:left", { playerId }),
+          );
         }
-        roomManager.addPlayer(room.id, roomPlayer(client));
-        safeSend(ws, roomMessage("room:snapshot", roomManager.snapshot(room)));
+        if (!roomManager.addPlayer(room.id, roomPlayer(client))) {
+          sendRoomError(ws, "ROOM_NOT_FOUND", "La sala no existe");
+          return;
+        }
+        safeSend(ws, roomMessage("room:state", roomManager.snapshot(room)));
         broadcastToRoom(
           roomManager,
           room.id,
           clients,
-          roomMessage("room:player_joined", { player: roomPlayer(client) }),
+          roomMessage("player:joined", { player: roomPlayer(client) }),
           playerId,
         );
         return;
       }
 
-      if (msg.type === "move" && msg.posX !== undefined && msg.posY !== undefined) {
-        const rawX = typeof msg.posX === "number" ? msg.posX : Number.NaN;
-        const rawY = typeof msg.posY === "number" ? msg.posY : Number.NaN;
+      if (
+        (msg.type === "player:move" || msg.type === "move") &&
+        (msg.data?.posX !== undefined || msg.posX !== undefined) &&
+        (msg.data?.posY !== undefined || msg.posY !== undefined)
+      ) {
+        const movement = msg.type === "player:move" ? msg.data : msg;
+        const rawX = typeof movement?.posX === "number" ? movement.posX : Number.NaN;
+        const rawY = typeof movement?.posY === "number" ? movement.posY : Number.NaN;
         if (!Number.isFinite(rawX) || !Number.isFinite(rawY)) return;
+
+        const currentRoomId = roomManager.getPlayerRoomId(playerId);
+        const currentRoom = currentRoomId ? roomManager.get(currentRoomId) : undefined;
+        if (!currentRoomId || !currentRoom?.players.has(playerId)) return;
 
         // Keep sub-tile precision for remote interpolation. The local client
         // still owns pathfinding and collision decisions; the server only
@@ -439,11 +434,18 @@ export function createWebSocketServer(server: import("http").Server): WebSocketS
 
         client.posX = newX;
         client.posY = newY;
+        currentRoom.players.set(playerId, roomPlayer(client));
 
         // Broadcast first so database latency cannot add jitter to the other
         // clients. Writes are serialized so an older packet cannot overwrite
         // a newer persisted position.
-        broadcast({ type: "player_moved", playerId, posX: newX, posY: newY }, playerId);
+        broadcastToRoom(
+          roomManager,
+          currentRoomId,
+          clients,
+          roomMessage("player:move", { playerId, posX: newX, posY: newY }),
+          playerId,
+        );
         client.positionWrite = client.positionWrite
           .then(async () => {
             await db
@@ -530,9 +532,8 @@ export function createWebSocketServer(server: import("http").Server): WebSocketS
       const roomId = roomManager.getPlayerRoomId(playerId);
       if (roomId) {
         roomManager.removePlayer(playerId);
-        broadcastToRoom(roomManager, roomId, clients, roomMessage("room:player_left", { playerId }));
+        broadcastToRoom(roomManager, roomId, clients, roomMessage("player:left", { playerId }));
       }
-      broadcast({ type: "player_left", playerId });
     });
 
     ws.on("error", (err) => {

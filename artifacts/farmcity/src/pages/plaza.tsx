@@ -34,8 +34,10 @@ interface ChatEntry {
 type ConnectionState = 'connecting' | 'connected' | 'reconnecting';
 
 interface RoomSnapshot {
+  id?: string;
   tiles?: Array<{ x: number; y: number }>;
   walls?: RoomWall[];
+  players?: WsPlayer[];
 }
 
 type PanelState =
@@ -207,7 +209,7 @@ export default function Plaza() {
               setRemotePlayers(next);
               break;
             }
-            case 'room:snapshot': {
+            case 'room:state': {
               const snapshot = msg.data as RoomSnapshot | undefined;
               if (snapshot?.tiles?.length) {
                 const minX = Math.min(...snapshot.tiles.map((tile) => tile.x));
@@ -226,19 +228,29 @@ export default function Plaza() {
                     : [],
                 );
               }
+              if (Array.isArray(snapshot?.players)) {
+                const next: Record<number, WsPlayer> = {};
+                for (const player of snapshot.players) {
+                  if (player.id !== authPlayerRef.current?.id) next[player.id] = player;
+                }
+                remotePlayersRef.current = next;
+                setRemotePlayers(next);
+                remoteActionsRef.current.clear();
+                setPanel(null);
+              }
               break;
             }
-            case 'player_joined': {
-              const p = msg.player as WsPlayer;
+            case 'player:joined': {
+              const data = msg.data as { player?: WsPlayer } | undefined;
+              const p = data?.player;
               if (p?.id) {
                 remotePlayersRef.current = { ...remotePlayersRef.current, [p.id]: p };
                 setRemotePlayers((prev) => ({ ...prev, [p.id]: p }));
               }
               break;
             }
-            case 'player_moved': {
-              const { playerId, posX, posY } = msg as {
-                type: string;
+            case 'player:move': {
+              const { playerId, posX, posY } = msg.data as {
                 playerId: number;
                 posX: number;
                 posY: number;
@@ -308,8 +320,8 @@ export default function Plaza() {
               });
               break;
             }
-            case 'player_left': {
-              const { playerId } = msg as { type: string; playerId: number };
+            case 'player:left': {
+              const { playerId } = msg.data as { playerId: number };
               setRemotePlayers((prev) => {
                 const next = { ...prev };
                 delete next[playerId];
@@ -364,7 +376,7 @@ export default function Plaza() {
 
   const handleMove = useCallback((posX: number, posY: number) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'move', posX, posY }));
+      wsRef.current.send(JSON.stringify({ type: 'player:move', data: { posX, posY } }));
     }
   }, []);
 

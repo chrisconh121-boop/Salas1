@@ -257,7 +257,7 @@ export default function RoomEditor() {
           return;
         }
 
-        if (message.type === 'room:joined' || message.type === 'room:snapshot') {
+        if (message.type === 'room:joined' || message.type === 'room:state') {
           const snapshot = message.data as {
             id?: string;
             name?: string;
