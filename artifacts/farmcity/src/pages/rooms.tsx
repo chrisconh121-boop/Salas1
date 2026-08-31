@@ -158,7 +158,12 @@ export default function Rooms() {
               <div className="room-list-owned-grid" aria-label="Mis salas">
                 {myRoomsQuery.data.map((room) => (
                   <article key={room.id} className="room-list-owned-card">
-                    <div className="room-list-owned-card-main">
+                    <button
+                      type="button"
+                      className="room-list-owned-room-link"
+                      onClick={() => setLocation(`/plaza?room=${encodeURIComponent(room.id)}`)}
+                      data-testid={`button-enter-my-room-${room.id}`}
+                    >
                       <span className="room-list-card-icon" aria-hidden="true">🏡</span>
                       <div className="room-list-card-copy">
                         <strong>{room.name}</strong>
@@ -169,7 +174,7 @@ export default function Rooms() {
                           ID: <code>{room.id}</code>
                         </span>
                       </div>
-                    </div>
+                    </button>
                     <div className="room-list-owned-actions">
                       <button
                         type="button"
